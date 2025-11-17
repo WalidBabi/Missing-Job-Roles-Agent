@@ -2,6 +2,35 @@
 
 This is a condensed guide for deploying to AWS. For detailed documentation, see [AWS_DEPLOYMENT.md](AWS_DEPLOYMENT.md).
 
+## Deployment Options
+
+### Option 1: Deploy to Existing EC2 Instance (Quick)
+
+If you have an EC2 instance with IP `16.171.237.146`:
+
+```bash
+# Linux/Mac
+export EC2_HOST="16.171.237.146"
+export EC2_USER="ec2-user"  # or "ubuntu" for Ubuntu
+export EC2_KEY="~/.ssh/your-key.pem"
+chmod +x aws/ec2/deploy-ec2.sh
+./aws/ec2/deploy-ec2.sh
+```
+
+```powershell
+# Windows PowerShell
+$env:EC2_HOST = "16.171.237.146"
+$env:EC2_USER = "ec2-user"
+$env:EC2_KEY = "$HOME\.ssh\your-key.pem"
+.\aws\ec2\deploy-ec2.ps1
+```
+
+See [aws/ec2/EC2_DEPLOYMENT.md](aws/ec2/EC2_DEPLOYMENT.md) for details.
+
+### Option 2: Deploy with ECS Fargate (Scalable)
+
+For production with auto-scaling and load balancing:
+
 ## Prerequisites
 
 1. AWS CLI installed and configured
