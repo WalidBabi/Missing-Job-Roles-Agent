@@ -1,0 +1,46 @@
+{
+  "serviceName": "missing-roles-agent-backend-service",
+  "cluster": "REPLACE_WITH_CLUSTER_NAME",
+  "taskDefinition": "missing-roles-agent-backend",
+  "desiredCount": 2,
+  "launchType": "FARGATE",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "REPLACE_WITH_PRIVATE_SUBNET_1",
+        "REPLACE_WITH_PRIVATE_SUBNET_2"
+      ],
+      "securityGroups": [
+        "REPLACE_WITH_ECS_SECURITY_GROUP"
+      ],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "loadBalancers": [
+    {
+      "targetGroupArn": "REPLACE_WITH_TARGET_GROUP_ARN",
+      "containerName": "backend",
+      "containerPort": 8000
+    }
+  ],
+  "healthCheckGracePeriodSeconds": 60,
+  "deploymentConfiguration": {
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 100,
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    }
+  },
+  "tags": [
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Project",
+      "value": "missing-roles-agent"
+    }
+  ]
+}
+

@@ -1,0 +1,93 @@
+{
+  "family": "missing-roles-agent-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "REPLACE_WITH_TASK_EXECUTION_ROLE_ARN",
+  "taskRoleArn": "REPLACE_WITH_TASK_ROLE_ARN",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "REPLACE_WITH_ECR_IMAGE_URI",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "DEBUG",
+          "value": "False"
+        },
+        {
+          "name": "DB_ENGINE",
+          "value": "django.db.backends.mysql"
+        },
+        {
+          "name": "DB_NAME",
+          "value": "hr_database"
+        },
+        {
+          "name": "DB_PORT",
+          "value": "3306"
+        },
+        {
+          "name": "LLM_PROVIDER",
+          "value": "openai"
+        },
+        {
+          "name": "LLM_MODEL",
+          "value": "gpt-4"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "SECRET_KEY",
+          "valueFrom": "REPLACE_WITH_SECRETS_ARN:SECRET_KEY::"
+        },
+        {
+          "name": "DB_HOST",
+          "valueFrom": "REPLACE_WITH_SECRETS_ARN:DB_HOST::"
+        },
+        {
+          "name": "DB_USER",
+          "valueFrom": "REPLACE_WITH_SECRETS_ARN:DB_USER::"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "REPLACE_WITH_SECRETS_ARN:DB_PASSWORD::"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "REPLACE_WITH_SECRETS_ARN:OPENAI_API_KEY::"
+        },
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "valueFrom": "REPLACE_WITH_SECRETS_ARN:ANTHROPIC_API_KEY::"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/missing-roles-agent-production",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:8000/api/job-roles/statistics/ || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
+

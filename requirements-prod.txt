@@ -1,0 +1,8 @@
+# Production requirements
+# Include gunicorn for production server
+gunicorn==21.2.0
+whitenoise==6.6.0
+
+# Include all base requirements
+-r requirements.txt
+
