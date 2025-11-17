@@ -27,7 +27,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
     echo -e "${YELLOW}Docker Compose not found. Installing...${NC}"
     sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     sudo chmod +x /usr/local/bin/docker-compose
@@ -35,8 +35,24 @@ if ! command -v docker-compose &> /dev/null; then
     sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
 fi
 
+# Start Docker service
+echo -e "${GREEN}Starting Docker service...${NC}"
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Add user to docker group (may require logout/login)
+if ! groups | grep -q docker; then
+    sudo usermod -aG docker $USER
+    echo -e "${YELLOW}Added user to docker group. You may need to log out and back in, or run: newgrp docker${NC}"
+    # Try to activate docker group without logout
+    newgrp docker << EOF || true
+EOF
+fi
+
 # Create directory for docker-compose
 DOCKER_DIR="/opt/missing-roles-agent/docker"
+sudo mkdir -p "${DOCKER_DIR}"
+sudo chown -R $USER:$USER /opt/missing-roles-agent 2>/dev/null || sudo mkdir -p /opt/missing-roles-agent && sudo chown -R $USER:$USER /opt/missing-roles-agent
 mkdir -p "${DOCKER_DIR}"
 
 # Copy docker-compose file
