@@ -35,10 +35,10 @@ if ! command -v python3.11 &> /dev/null; then
     sudo apt-get install -y python3.11 python3.11-pip python3.11-dev
 fi
 
-# Install MySQL client and development libraries
+# Install MySQL client and development libraries (for mysqlclient Python package)
 echo -e "${GREEN}[3/7] Installing MySQL dependencies...${NC}"
-sudo yum install -y mysql mysql-devel gcc 2>/dev/null || \
-sudo apt-get install -y default-mysql-client libmysqlclient-dev build-essential
+sudo yum install -y mysql-devel gcc 2>/dev/null || \
+sudo apt-get install -y libmysqlclient-dev build-essential
 
 # Install nginx
 echo -e "${GREEN}[4/7] Installing nginx...${NC}"
