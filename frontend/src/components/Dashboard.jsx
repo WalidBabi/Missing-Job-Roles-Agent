@@ -156,8 +156,8 @@ export default function Dashboard() {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Departments</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {stats?.departments.map((dept) => (
-            <div key={dept} className="p-3 bg-gray-50 rounded-lg text-center">
+          {stats?.departments.map((dept, index) => (
+            <div key={`${dept}-${index}`} className="p-3 bg-gray-50 rounded-lg text-center">
               <p className="text-sm font-medium text-gray-900">{dept}</p>
             </div>
           ))}

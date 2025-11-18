@@ -8,7 +8,9 @@ from .views import (
     EmployeeViewSet,
     AnalysisRunViewSet,
     MissingRoleViewSet,
-    chatbot_message
+    chatbot_message,
+    list_conversations,
+    get_conversation
 )
 
 # Create router and register viewsets
@@ -21,5 +23,7 @@ router.register(r'missing-roles', MissingRoleViewSet, basename='missingrole')
 urlpatterns = [
     path('', include(router.urls)),
     path('chatbot/', chatbot_message, name='chatbot'),
+    path('conversations/', list_conversations, name='list_conversations'),
+    path('conversations/<str:conversation_id>/', get_conversation, name='get_conversation'),
 ]
 

@@ -38,5 +38,9 @@ export const sendChatMessage = (message, conversationId = null) => {
   return api.post('/chatbot/', { message, conversation_id: conversationId });
 };
 
+// Conversations API
+export const getConversations = () => api.get('/conversations/');
+export const getConversation = (conversationId) => api.get(`/conversations/${conversationId}/`);
+
 export default api;
 

@@ -312,13 +312,27 @@ export default function OrganizationChart() {
       const width = Math.max(maxX - minX, 800);
       const height = Math.max(maxY - minY, 600);
 
+      const svgWidth = Math.max(width || 800, 800);
+      
       return (
-      <div className="overflow-auto" style={{ maxHeight: '800px' }}>
+      <div 
+        className="border border-gray-200 rounded-lg bg-white org-chart-scrollable"
+        style={{ 
+          maxHeight: '800px',
+          overflowX: 'auto',
+          overflowY: 'auto',
+          width: '100%',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
         <svg
-          width={width || 800}
+          width={svgWidth}
           height={height || 600}
-          className="border border-gray-200 rounded-lg bg-white"
-          style={{ minWidth: '100%' }}
+          className="bg-white"
+          style={{ 
+            display: 'block',
+            minWidth: svgWidth
+          }}
         >
           {/* Render arrows with right-angle corners */}
           {arrows.map((arrow, index) => {
@@ -597,8 +611,8 @@ export default function OrganizationChart() {
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">All Departments</option>
-              {departments.map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
+              {departments.map((dept, index) => (
+                <option key={`dept-${dept}-${index}`} value={dept}>{dept}</option>
               ))}
             </select>
           </div>
@@ -643,11 +657,11 @@ export default function OrganizationChart() {
         {filteredDepts.length === 0 ? (
           <p className="text-gray-600 text-center py-8">No departments found.</p>
         ) : (
-          filteredDepts.map((dept) => {
+          filteredDepts.map((dept, index) => {
             const deptRoles = hierarchy[dept] || [];
             if (deptRoles.length === 0) {
               return (
-                <div key={dept} className="mb-8 last:mb-0">
+                <div key={`${dept}-${index}`} className="mb-8 last:mb-0">
                   <div className="mb-4">
                     <h2 className="text-2xl font-bold text-gray-900">{dept}</h2>
                   </div>
@@ -659,12 +673,12 @@ export default function OrganizationChart() {
             }
 
             return (
-              <div key={dept} className="mb-8 last:mb-0">
+              <div key={`${dept}-${index}`} className="mb-8 last:mb-0">
                 <div className="mb-4">
                   <h2 className="text-2xl font-bold text-gray-900">{dept}</h2>
                   <p className="text-sm text-gray-600">{deptRoles.length} role{deptRoles.length !== 1 ? 's' : ''}</p>
                 </div>
-                <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="bg-white rounded-lg p-4 shadow-sm" style={{ overflow: 'visible' }}>
                   {renderOrgChart(deptRoles, dept)}
                 </div>
               </div>

@@ -53,8 +53,8 @@ export default function JobRoles() {
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">All Departments</option>
-              {departments.map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
+              {departments.map((dept, index) => (
+                <option key={`dept-${dept}-${index}`} value={dept}>{dept}</option>
               ))}
             </select>
           </div>
@@ -75,15 +75,15 @@ export default function JobRoles() {
       </div>
 
       {/* Roles by Department */}
-      {filteredDepts.map((dept) => {
-        const roles = rolesByDept[dept].filter((role) =>
+      {filteredDepts.map((dept, index) => {
+        const roles = rolesByDept[dept]?.filter((role) =>
           searchTerm === '' || role.role_title.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        ) || [];
 
         if (roles.length === 0) return null;
 
         return (
-          <div key={dept} className="bg-white rounded-lg shadow">
+          <div key={`${dept}-${index}`} className="bg-white rounded-lg shadow">
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-t-lg">
               <h2 className="text-xl font-semibold">{dept}</h2>
               <p className="text-blue-100 text-sm">{roles.length} roles</p>

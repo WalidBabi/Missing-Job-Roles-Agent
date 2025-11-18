@@ -2,10 +2,36 @@
 Individual AI agents for analyzing different aspects of organizational structure
 """
 import json
+import sys
 from typing import Dict, Any
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from .llm_factory import get_llm
 from .state import AnalysisState
+
+# Set UTF-8 encoding for stdout on Windows
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except (AttributeError, ValueError):
+        pass
+
+# Import safe print function
+try:
+    from ..utils import safe_print as print
+except ImportError:
+    import builtins
+    def safe_print(*args, **kwargs):
+        try:
+            builtins.print(*args, **kwargs)
+        except (UnicodeEncodeError, TypeError):
+            safe_args = []
+            for arg in args:
+                if isinstance(arg, str):
+                    safe_args.append(arg.replace('🔍', '[ANALYZING]').replace('✅', '[OK]').replace('❌', '[ERROR]'))
+                else:
+                    safe_args.append(arg)
+            builtins.print(*safe_args, **kwargs)
+    print = safe_print
 
 
 def org_structure_analyzer(state: AnalysisState) -> Dict[str, Any]:

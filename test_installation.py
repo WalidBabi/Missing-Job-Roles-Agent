@@ -207,3 +207,7 @@ if __name__ == "__main__":
     success = run_all_tests()
     sys.exit(0 if success else 1)
 
+backend python django postgress
+chatbot
+quick action buttons
+a name for the agent

@@ -233,3 +233,67 @@ class MissingRole(models.Model):
     def __str__(self):
         return f"{self.recommended_role_title} - {self.priority.upper()} priority"
 
+
+class Conversation(models.Model):
+    """
+    Model representing a chatbot conversation session
+    """
+    conversation_id = models.CharField(max_length=100, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'conversations'
+        ordering = ['-updated_at']
+        verbose_name = 'Conversation'
+        verbose_name_plural = 'Conversations'
+    
+    def __str__(self):
+        return f"Conversation {self.conversation_id} ({self.message_count} messages)"
+    
+    @property
+    def message_count(self):
+        """Get the number of messages in this conversation"""
+        return self.messages.count()
+    
+    def get_recent_messages(self, limit=10):
+        """Get recent messages for context"""
+        return self.messages.all().order_by('timestamp')[:limit]
+
+
+class ConversationMessage(models.Model):
+    """
+    Model representing a single message in a conversation
+    """
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('assistant', 'Assistant'),
+        ('system', 'System'),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name='messages'
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    # Optional metadata
+    triggered_analysis = models.BooleanField(default=False)
+    analysis_id = models.IntegerField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'conversation_messages'
+        ordering = ['timestamp']
+        verbose_name = 'Conversation Message'
+        verbose_name_plural = 'Conversation Messages'
+        indexes = [
+            models.Index(fields=['conversation', 'timestamp']),
+        ]
+    
+    def __str__(self):
+        return f"{self.role}: {self.content[:50]}..."
+

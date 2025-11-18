@@ -2,7 +2,7 @@
 Django Admin configuration for Job Roles Analyzer
 """
 from django.contrib import admin
-from .models import JobRole, Employee, AnalysisRun, MissingRole
+from .models import JobRole, Employee, AnalysisRun, MissingRole, Conversation, ConversationMessage
 
 
 @admin.register(JobRole)
@@ -35,4 +35,26 @@ class MissingRoleAdmin(admin.ModelAdmin):
     list_filter = ['priority', 'department', 'gap_type']
     search_fields = ['recommended_role_title', 'justification']
     ordering = ['-analysis_run__run_date', 'priority']
+
+
+@admin.register(Conversation)
+class ConversationAdmin(admin.ModelAdmin):
+    list_display = ['conversation_id', 'message_count', 'created_at', 'updated_at']
+    list_filter = ['created_at', 'updated_at']
+    search_fields = ['conversation_id']
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['-updated_at']
+
+
+@admin.register(ConversationMessage)
+class ConversationMessageAdmin(admin.ModelAdmin):
+    list_display = ['id', 'conversation', 'role', 'content_preview', 'timestamp', 'triggered_analysis']
+    list_filter = ['role', 'triggered_analysis', 'timestamp']
+    search_fields = ['content', 'conversation__conversation_id']
+    readonly_fields = ['timestamp']
+    ordering = ['-timestamp']
+    
+    def content_preview(self, obj):
+        return obj.content[:100] + '...' if len(obj.content) > 100 else obj.content
+    content_preview.short_description = 'Content'
 

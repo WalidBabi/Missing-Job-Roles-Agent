@@ -1,12 +1,37 @@
 """
 Conversational chatbot for HR that uses the multi-agent system
 """
+import sys
+import uuid
 from typing import Dict, List, Optional
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from .ai_agents.llm_factory import get_llm
-from .models import JobRole, Employee, AnalysisRun, MissingRole
+from .models import JobRole, Employee, AnalysisRun, MissingRole, Conversation, ConversationMessage
 from .ai_agents import run_analysis
 import json
+
+# Set UTF-8 encoding for stdout on Windows
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except (AttributeError, ValueError):
+        pass
+
+# Safe string function for emoji replacement
+def safe_string(text: str) -> str:
+    """Replace emojis with ASCII-safe alternatives"""
+    emoji_map = {
+        '✅': '[OK]',
+        '❌': '[ERROR]',
+        '🔴': '[CRITICAL]',
+        '🟠': '[HIGH]',
+        '🟡': '[MEDIUM]',
+        '⚪': '[LOW]',
+    }
+    result = text
+    for emoji, replacement in emoji_map.items():
+        result = result.replace(emoji, replacement)
+    return result
 
 
 class HRChatbot:
@@ -16,7 +41,70 @@ class HRChatbot:
     
     def __init__(self):
         self.llm = get_llm(temperature=0.3)
-        self.conversation_history = []
+    
+    def _get_or_create_conversation(self, conversation_id: Optional[str] = None) -> Conversation:
+        """
+        Get existing conversation or create a new one
+        
+        Args:
+            conversation_id: Optional conversation ID. If None, creates new conversation.
+        
+        Returns:
+            Conversation instance
+        """
+        if conversation_id:
+            try:
+                conversation = Conversation.objects.get(conversation_id=conversation_id)
+                return conversation
+            except Conversation.DoesNotExist:
+                # Create new conversation with provided ID (shouldn't happen normally)
+                return Conversation.objects.create(conversation_id=conversation_id)
+        else:
+            # Create new conversation with UUID
+            new_id = str(uuid.uuid4())
+            return Conversation.objects.create(conversation_id=new_id)
+    
+    def _get_conversation_history(self, conversation: Conversation, limit: int = 10) -> List[Dict]:
+        """
+        Get recent conversation history for context
+        
+        Args:
+            conversation: Conversation instance
+            limit: Maximum number of recent messages to retrieve
+        
+        Returns:
+            List of message dictionaries with 'role' and 'content'
+        """
+        messages = conversation.messages.all().order_by('timestamp')[:limit]
+        return [
+            {
+                'role': msg.role,
+                'content': msg.content
+            }
+            for msg in messages
+        ]
+    
+    def _save_message(self, conversation: Conversation, role: str, content: str, 
+                     triggered_analysis: bool = False, analysis_id: Optional[int] = None):
+        """
+        Save a message to the conversation
+        
+        Args:
+            conversation: Conversation instance
+            role: Message role ('user', 'assistant', 'system')
+            content: Message content
+            triggered_analysis: Whether this message triggered an analysis
+            analysis_id: Optional analysis ID if analysis was triggered
+        """
+        ConversationMessage.objects.create(
+            conversation=conversation,
+            role=role,
+            content=content,
+            triggered_analysis=triggered_analysis,
+            analysis_id=analysis_id
+        )
+        # Update conversation's updated_at timestamp
+        conversation.save(update_fields=['updated_at'])
     
     def _get_context_data(self) -> Dict:
         """Get current organizational context"""
@@ -91,14 +179,14 @@ class HRChatbot:
         response = f"I found {len(recommendations)} recommended missing roles:\n\n"
         
         for i, rec in enumerate(recommendations, 1):
-            priority_emoji = {
-                'critical': '🔴',
-                'high': '🟠',
-                'medium': '🟡',
-                'low': '🟢'
-            }.get(rec['priority'], '⚪')
+            priority_label = {
+                'critical': '[CRITICAL]',
+                'high': '[HIGH]',
+                'medium': '[MEDIUM]',
+                'low': '[LOW]'
+            }.get(rec['priority'], '[LOW]')
             
-            response += f"{priority_emoji} **{rec['role_title']}** ({rec['department']}) - {rec['priority'].upper()} priority\n"
+            response += f"{priority_label} **{rec['role_title']}** ({rec['department']}) - {rec['priority'].upper()} priority\n"
             response += f"   Why: {rec['justification'][:150]}...\n\n"
         
         return response
@@ -112,19 +200,40 @@ class HRChatbot:
             conversation_id: Optional conversation ID for context
         
         Returns:
-            Dictionary with response and metadata
+            Dictionary with response, conversation_id, and metadata
         """
+        # Get or create conversation
+        conversation = self._get_or_create_conversation(conversation_id)
+        
+        # Save user message
+        self._save_message(conversation, 'user', user_message)
+        
         context = self._get_context_data()
         should_trigger, departments = self._should_trigger_analysis(user_message)
         
         # If user wants to trigger analysis, do it
         if should_trigger:
-            return self._handle_analysis_request(user_message, departments)
+            result = self._handle_analysis_request(user_message, departments, conversation)
+            # Save assistant response
+            self._save_message(
+                conversation, 
+                'assistant', 
+                result['response'],
+                triggered_analysis=True,
+                analysis_id=result.get('analysis_id')
+            )
+            result['conversation_id'] = conversation.conversation_id
+            return result
         
         # Otherwise, provide conversational response
-        return self._handle_conversational_query(user_message, context)
+        result = self._handle_conversational_query(user_message, context, conversation)
+        # Save assistant response
+        self._save_message(conversation, 'assistant', result['response'])
+        result['conversation_id'] = conversation.conversation_id
+        return result
     
-    def _handle_analysis_request(self, user_message: str, departments: Optional[List[str]]) -> Dict:
+    def _handle_analysis_request(self, user_message: str, departments: Optional[List[str]], 
+                                conversation: Conversation) -> Dict:
         """Handle requests to run analysis"""
         try:
             # Get data for analysis
@@ -223,13 +332,13 @@ class HRChatbot:
                         responsibilities=rec.get('responsibilities', []),
                     )
                 
-                response_text = f"✅ Analysis complete! I analyzed {len(job_roles)} roles and {len(employees)} employees.\n\n"
+                response_text = f"[OK] Analysis complete! I analyzed {len(job_roles)} roles and {len(employees)} employees.\n\n"
                 
                 if recommendations:
                     response_text += f"I found **{len(recommendations)} missing roles** that you should consider:\n\n"
                     for i, rec in enumerate(recommendations[:5], 1):
-                        priority_emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡'}.get(rec.get('priority', 'medium'), '⚪')
-                        response_text += f"{priority_emoji} **{rec.get('role_title', 'Unknown')}** ({rec.get('department', 'Unknown')}) - {rec.get('priority', 'medium').upper()}\n"
+                        priority_label = {'critical': '[CRITICAL]', 'high': '[HIGH]', 'medium': '[MEDIUM]'}.get(rec.get('priority', 'medium'), '[LOW]')
+                        response_text += f"{priority_label} **{rec.get('role_title', 'Unknown')}** ({rec.get('department', 'Unknown')}) - {rec.get('priority', 'medium').upper()}\n"
                         response_text += f"   {rec.get('justification', '')[:120]}...\n\n"
                     
                     if len(recommendations) > 5:
@@ -245,24 +354,32 @@ class HRChatbot:
                 }
             else:
                 return {
-                    'response': "❌ I encountered an error while running the analysis. Please try again or check the system logs.",
+                    'response': "[ERROR] I encountered an error while running the analysis. Please try again or check the system logs.",
                     'triggered_analysis': False,
                     'error': result.get('error'),
                 }
         
         except Exception as e:
+            error_msg = str(e)
+            # Remove emojis from error messages
+            error_msg = safe_string(error_msg)
             return {
-                'response': f"❌ Sorry, I encountered an error: {str(e)}",
+                'response': f"[ERROR] Sorry, I encountered an error: {error_msg}",
                 'triggered_analysis': False,
-                'error': str(e),
+                'error': error_msg,
             }
     
-    def _handle_conversational_query(self, user_message: str, context: Dict) -> Dict:
-        """Handle general conversational queries"""
+    def _handle_conversational_query(self, user_message: str, context: Dict, 
+                                     conversation: Conversation) -> Dict:
+        """Handle general conversational queries with conversation history"""
         # Get latest recommendations for context
         latest_recommendations = self._get_latest_recommendations()
         
-        prompt = ChatPromptTemplate.from_messages([
+        # Get conversation history (last 10 messages for context)
+        history = self._get_conversation_history(conversation, limit=10)
+        
+        # Build messages list with system prompt, history, and current message
+        messages = [
             ("system", """You are a helpful HR assistant chatbot for an organization. You help HR professionals understand their organizational structure, identify missing roles, and get insights about their workforce.
 
 You have access to:
@@ -274,10 +391,17 @@ When users ask about missing roles or recommendations, reference the latest anal
 Be conversational, friendly, and professional. Provide specific, actionable insights.
 If asked about specific departments or roles, be detailed and helpful.
 
-If the user wants to run a new analysis, tell them to use phrases like "run analysis" or "analyze organization"."""),
-            ("user", "{user_message}")
-        ])
+If the user wants to run a new analysis, tell them to use phrases like "run analysis" or "analyze organization".
+
+You have access to the conversation history, so you can reference previous messages and maintain context throughout the conversation.""")
+        ]
         
+        # Add conversation history (skip system messages)
+        for msg in history:
+            if msg['role'] != 'system':  # Skip system messages from history
+                messages.append((msg['role'], msg['content']))
+        
+        # Add current user message
         departments_str = ", ".join(context['departments'])
         recommendations_context = ""
         if latest_recommendations:
@@ -285,9 +409,12 @@ If the user wants to run a new analysis, tell them to use phrases like "run anal
             for rec in latest_recommendations[:3]:
                 recommendations_context += f"- {rec['role_title']} ({rec['department']}) - {rec['priority']} priority\n"
         
+        messages.append(("user", user_message + recommendations_context))
+        
+        prompt = ChatPromptTemplate.from_messages(messages)
+        
         chain = prompt | self.llm
         response = chain.invoke({
-            "user_message": user_message + recommendations_context,
             "total_roles": context['total_roles'],
             "total_employees": context['total_employees'],
             "departments_count": len(context['departments']),

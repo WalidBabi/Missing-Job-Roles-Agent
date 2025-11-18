@@ -2,7 +2,7 @@
 Django REST Framework Serializers
 """
 from rest_framework import serializers
-from .models import JobRole, Employee, AnalysisRun, MissingRole
+from .models import JobRole, Employee, AnalysisRun, MissingRole, Conversation, ConversationMessage
 
 
 class JobRoleSerializer(serializers.ModelSerializer):
@@ -75,4 +75,49 @@ class TriggerAnalysisSerializer(serializers.Serializer):
         default=False,
         help_text="Whether to include industry benchmark comparison"
     )
+
+
+class ConversationMessageSerializer(serializers.ModelSerializer):
+    """Serializer for conversation messages"""
+    class Meta:
+        model = ConversationMessage
+        fields = ['id', 'role', 'content', 'timestamp', 'triggered_analysis', 'analysis_id']
+        read_only_fields = ['id', 'timestamp']
+
+
+class ConversationSerializer(serializers.ModelSerializer):
+    """Serializer for conversations"""
+    message_count = serializers.IntegerField(source='messages.count', read_only=True)
+    last_message_preview = serializers.SerializerMethodField()
+    last_message_time = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Conversation
+        fields = ['conversation_id', 'created_at', 'updated_at', 'message_count', 
+                  'last_message_preview', 'last_message_time']
+        read_only_fields = ['conversation_id', 'created_at', 'updated_at']
+    
+    def get_last_message_preview(self, obj):
+        """Get preview of last message"""
+        last_message = obj.messages.order_by('-timestamp').first()
+        if last_message:
+            preview = last_message.content[:100]
+            return preview + '...' if len(last_message.content) > 100 else preview
+        return None
+    
+    def get_last_message_time(self, obj):
+        """Get timestamp of last message"""
+        last_message = obj.messages.order_by('-timestamp').first()
+        return last_message.timestamp if last_message else obj.updated_at
+
+
+class ConversationDetailSerializer(serializers.ModelSerializer):
+    """Serializer for conversation with messages"""
+    messages = ConversationMessageSerializer(many=True, read_only=True)
+    message_count = serializers.IntegerField(source='messages.count', read_only=True)
+    
+    class Meta:
+        model = Conversation
+        fields = ['conversation_id', 'created_at', 'updated_at', 'message_count', 'messages']
+        read_only_fields = ['conversation_id', 'created_at', 'updated_at']
 

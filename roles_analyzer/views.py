@@ -8,14 +8,16 @@ from django.utils import timezone
 from django.db.models import Count
 import time
 
-from .models import JobRole, Employee, AnalysisRun, MissingRole
+from .models import JobRole, Employee, AnalysisRun, MissingRole, Conversation, ConversationMessage
 from .serializers import (
     JobRoleSerializer, 
     EmployeeSerializer,
     AnalysisRunSerializer,
     AnalysisRunListSerializer,
     MissingRoleSerializer,
-    TriggerAnalysisSerializer
+    TriggerAnalysisSerializer,
+    ConversationSerializer,
+    ConversationDetailSerializer
 )
 from .ai_agents import run_analysis
 from .chatbot import HRChatbot
@@ -106,11 +108,37 @@ class JobRoleViewSet(viewsets.ReadOnlyModelViewSet):
                 # This is a root role (no parent)
                 root_roles.append(role_data)
         
-        # Group root roles by department
+        # Group roles by department
+        # Include: root roles + managers with children (even if they report to someone)
         org_by_dept = defaultdict(list)
+        
+        # First, add root roles grouped by department
         for role_data in root_roles:
             dept = role_data['department']
             org_by_dept[dept].append(role_data)
+        
+        # Also include all manager-level roles in each department
+        # These are important to show even if they report to someone outside the department
+        for role in all_roles:
+            role_data = role_map[role.role_id]
+            dept = role_data['department']
+            
+            # Include all manager-level roles (manager, lead, director, vp, c_level)
+            # These are key organizational roles that should be visible
+            is_leader = role.level in ['manager', 'lead', 'director', 'vp', 'c_level']
+            
+            if is_leader:
+                # Check if it's already in the tree for this department
+                found = False
+                for dept_role in org_by_dept[dept]:
+                    if find_role_in_tree(dept_role, role.role_id):
+                        found = True
+                        break
+                
+                # If not found, add it as a root node for this department
+                # This ensures managers show up even if they report to someone else
+                if not found:
+                    org_by_dept[dept].append(role_data)
         
         # Also include any orphaned roles (roles that should have parents but don't)
         for role in all_roles:
@@ -509,11 +537,49 @@ def chatbot_message(request):
         
         return Response({
             'response': result['response'],
+            'conversation_id': result.get('conversation_id'),
             'triggered_analysis': result.get('triggered_analysis', False),
             'recommendations_count': result.get('recommendations_count', 0),
             'analysis_id': result.get('analysis_id'),
         })
     
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def list_conversations(request):
+    """
+    List all conversations ordered by most recent
+    """
+    try:
+        conversations = Conversation.objects.all().order_by('-updated_at')[:50]  # Limit to 50 most recent
+        serializer = ConversationSerializer(conversations, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def get_conversation(request, conversation_id):
+    """
+    Get a specific conversation with all its messages
+    """
+    try:
+        conversation = Conversation.objects.get(conversation_id=conversation_id)
+        serializer = ConversationDetailSerializer(conversation)
+        return Response(serializer.data)
+    except Conversation.DoesNotExist:
+        return Response(
+            {'error': 'Conversation not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
     except Exception as e:
         return Response(
             {'error': str(e)},

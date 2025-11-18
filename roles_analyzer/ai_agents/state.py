@@ -22,6 +22,7 @@ class AnalysisState(TypedDict):
     workload_analysis: Optional[str]
     skills_analysis: Optional[str]
     
+    
     # Final output
     recommendations: Optional[List[Dict[str, Any]]]
     

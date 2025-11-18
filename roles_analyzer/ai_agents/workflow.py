@@ -1,6 +1,8 @@
 """
 LangGraph workflow orchestration
 """
+import sys
+import os
 from typing import Dict, Any
 from langgraph.graph import StateGraph, END
 from .state import AnalysisState
@@ -11,6 +13,34 @@ from .agents import (
     skills_analyzer,
     synthesizer
 )
+
+# Set UTF-8 encoding for stdout on Windows
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except (AttributeError, ValueError):
+        # Python < 3.7 or already configured
+        pass
+
+# Import safe print function
+try:
+    from ..utils import safe_print as print
+except ImportError:
+    # Fallback if utils not available
+    import builtins
+    def safe_print(*args, **kwargs):
+        try:
+            builtins.print(*args, **kwargs)
+        except UnicodeEncodeError:
+            # Replace emojis with ASCII
+            safe_args = []
+            for arg in args:
+                if isinstance(arg, str):
+                    safe_args.append(arg.replace('🚀', '[START]').replace('✅', '[OK]').replace('❌', '[ERROR]'))
+                else:
+                    safe_args.append(arg)
+            builtins.print(*safe_args, **kwargs)
+    print = safe_print
 
 
 def create_analysis_workflow():
