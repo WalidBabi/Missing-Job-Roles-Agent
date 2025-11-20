@@ -9,6 +9,23 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Configure PyMySQL to work with Django
+try:
+    import pymysql
+    pymysql.install_as_MySQLdb()
+    
+    # Patch PyMySQL Connection to handle empty passwords
+    import pymysql.connections
+    original_connect = pymysql.connections.Connection.connect
+    def patched_connect(self):
+        # If password is None or empty, set it to empty bytes for authentication
+        if hasattr(self, 'password') and (self.password is None or self.password == ''):
+            self.password = b''
+        return original_connect(self)
+    pymysql.connections.Connection.connect = patched_connect
+except ImportError:
+    pass
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -18,7 +35,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-producti
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,16.171.237.146').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,16.171.237.146,13.62.19.27').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -70,19 +87,24 @@ TEMPLATES = [
 WSGI_APPLICATION = 'missing_roles_project.wsgi.application'
 
 # Database
+DB_PASSWORD = os.getenv('DB_PASSWORD', '')
+# Build database config
+db_config = {
+    'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.mysql'),
+    'NAME': os.getenv('DB_NAME', 'hr_database'),
+    'USER': os.getenv('DB_USER', 'root'),
+    'HOST': os.getenv('DB_HOST', 'localhost'),
+    'PORT': os.getenv('DB_PORT', '3306'),
+    'OPTIONS': {
+        'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        'charset': 'utf8mb4',
+    },
+}
+# Set password to None (not empty string) when empty - PyMySQL handles None correctly
+db_config['PASSWORD'] = DB_PASSWORD if DB_PASSWORD else None
+
 DATABASES = {
-    'default': {
-        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.mysql'),
-        'NAME': os.getenv('DB_NAME', 'hr_database'),
-        'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '3306'),
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            'charset': 'utf8mb4',
-        },
-    }
+    'default': db_config
 }
 
 # Password validation
@@ -132,7 +154,7 @@ REST_FRAMEWORK = {
 
 # CORS Settings (adjust for production)
 CORS_ALLOW_ALL_ORIGINS = DEBUG
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://13.62.19.27:5173,http://localhost:5173').split(',')
 
 # Security settings for production
 if not DEBUG:
