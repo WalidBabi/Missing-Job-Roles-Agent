@@ -35,7 +35,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-producti
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,16.171.237.146,13.62.19.27').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,16.171.237.146,13.62.19.27,13.53.36.181,13.62.188.127').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -154,7 +154,7 @@ REST_FRAMEWORK = {
 
 # CORS Settings (adjust for production)
 CORS_ALLOW_ALL_ORIGINS = DEBUG
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://13.62.19.27:5173,http://localhost:5173').split(',')
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://13.62.19.27:5173,http://localhost:5173,http://13.53.36.181:5173,http://13.62.188.127:5173').split(',')
 
 # Security settings for production
 if not DEBUG:

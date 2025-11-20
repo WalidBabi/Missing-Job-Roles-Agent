@@ -7,7 +7,7 @@ export default defineConfig({
     strictPort: true,
   },
   define: {
-    'import.meta.env.VITE_API_URL': JSON.stringify('http://13.62.19.27:8000/api')
+    'import.meta.env.VITE_API_URL': JSON.stringify('http://13.62.188.127:8000/api')
   }
 })
 
